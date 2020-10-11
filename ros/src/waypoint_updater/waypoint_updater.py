@@ -106,7 +106,7 @@ class WaypointUpdater(object):
 			p.pose = wp.pose
 			# Two waypoints back from line so front of car stops at line
 			stop_idx = max(self.stopline_wp_idx - closest_idx - 2, 0)
-			dist = max(self.stopline_wp_idx, i, stop_idx)
+			dist = self.distance(waypoints, i, stop_idx)
 			vel = math.sqrt(2 * MAX_DECEL * dist)
 			if vel < 1.:
 				vel = 0.
