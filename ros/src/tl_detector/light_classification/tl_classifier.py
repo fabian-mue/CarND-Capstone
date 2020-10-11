@@ -10,15 +10,14 @@ class TLClassifier(object):
 
         # Load frozen inference graph
         if self.use_simulator:
-            trained_model_path = 'light_classification/ssd_simulator/frozen_inference_graph_sim.pb'
+            trained_model_path = 'frozen_inference_graph_sim.pb'
         else:
-            trained_model_path = 'light_classification/ssd_real/frozen_inference_graph_real.pb'
+            trained_model_path = 'frozen_inference_graph_real.pb'
         self.ssd_graph = tf.Graph()
         with self.ssd_graph.as_default():
-            graph_def = tf.GraphDef()
             with tf.gfile.GFile(trained_model_path, 'rb') as fid:
-                serialized_graph = fid.read()
-                graph_def.ParseFromString(serialized_graph)
+                graph_def = tf.GraphDef()
+                graph_def.ParseFromString(fid.read())
                 tf.import_graph_def(graph_def, name='')
 
             # Load Graph and extract relevant tensors reflecting interesting inputs and outputs
