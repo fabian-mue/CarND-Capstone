@@ -1,13 +1,71 @@
 from styx_msgs.msg import TrafficLight
+import tensorflow as tf
 import cv2
 import numpy as np
 
 class TLClassifier(object):
     def __init__(self):
-        #TODO load classifier
-        pass
+        self.threshold = 0.51
+        self.use_simulator = True
+
+        # Load frozen inference graph
+        if self.use_simulator:
+            trained_model_path = 'light_classification/ssd_simulator/frozen_inference_graph_sim.pb'
+        else:
+            trained_model_path = 'light_classification/ssd_real/frozen_inference_graph_real.pb'
+        self.ssd_graph = tf.Graph()
+        with self.ssd_graph.as_default():
+            graph_def = tf.GraphDef()
+            with tf.gfile.GFile(trained_model_path, 'rb') as fid:
+                serialized_graph = fid.read()
+                graph_def.ParseFromString(serialized_graph)
+                tf.import_graph_def(graph_def, name='')
+
+            # Load Graph and extract relevant tensors reflecting interesting inputs and outputs
+            self.image_tensor = self.ssd_graph.get_tensor_by_name('image_tensor:0')
+            self.boxes_det = self.ssd_graph.get_tensor_by_name('detection_boxes:0')
+            self.scores_det = self.ssd_graph.get_tensor_by_name('detection_scores:0')
+            self.classes_det = self.ssd_graph.get_tensor_by_name('detection_classes:0')
+            self.num_detections_det = self.ssd_graph.get_tensor_by_name('num_detections:0')
+
+        # set current session as attribute
+        self.current_session = tf.Session(graph=self.ssd_graph)
 
     def get_classification(self, image):
+        """Determines the color of the traffic light in the image
+
+        Args:
+            image (cv::Mat): image containing the traffic light
+
+        Returns:
+            int: ID of traffic light color (specified in styx_msgs/TrafficLight)
+
+        """
+        # TODO implement light color prediction
+        with self.graph.as_default():
+            image_expanded = np.expand_dims(np.asarray(image, dtype=np.uint8), 0)
+            # Start detection
+            (boxes_sess, scores_sess, classes_sess, num_detections_sess) = self.current_session.run(
+                [self.boxes_det, self.scores_det, self.classes_det, self.num_detections_det],
+                feed_dict={self.image_tensor: image_expanded})
+
+        # Remove not required dimensions
+        scores_pp = np.squeeze(scores_sess)
+        classes_pp = np.squeeze(classes_sess).astype(np.int32)
+
+        if scores_pp[0] > self.threshold:
+            if 1 == classes_pp[0]:
+                print('Green light')
+                return TrafficLight.GREEN
+            elif 2 == classes_pp[0]:
+                print('Red light')
+                return TrafficLight.RED
+            elif 3 == classes_pp[0]:
+                print('Yellow light')
+                return TrafficLight.YELLOW
+        return TrafficLight.UNKNOWN
+
+    def get_classification_cv(self, image):
         """Determines the color of the traffic light in the image
 
         Args:
