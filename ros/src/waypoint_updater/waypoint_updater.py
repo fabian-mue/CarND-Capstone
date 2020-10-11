@@ -27,15 +27,15 @@ MAX_DECEL = 0.5  # max decelerate value
 
 class WaypointUpdater(object):
 	def __init__(self):
+		rospy.init_node('waypoint_updater')
+        
 		self.pose = None
-		self.base_waypoints = None
+		#self.base_waypoints = None
 		self.waypoints_2d = None
 		self.waypoint_tree = None
 		self.base_lane = None
 		self.stopline_wp_idx = -1
         
-		rospy.init_node('waypoint_updater')
-
 		rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
 		rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
@@ -58,7 +58,7 @@ class WaypointUpdater(object):
 	# add 
 	def get_closest_waypoint_idx(self):
 		x = self.pose.pose.position.x
-		y = self.pose.pose.position.x
+		y = self.pose.pose.position.y
 		closest_idx = self.waypoint_tree.query([x, y], 1)[1]
 
 		# Check if closest is ahead or behind vehicle
@@ -111,7 +111,7 @@ class WaypointUpdater(object):
 			if vel < 1.:
 				vel = 0.
 
-			p.twist.twist.linear.x - min(vel, wp.twist.twist.linear.x)
+			p.twist.twist.linear.x = min(vel, wp.twist.twist.linear.x)
 			tmp.append(p)	
 
 		return tmp
@@ -130,9 +130,9 @@ class WaypointUpdater(object):
 
 	def traffic_cb(self, msg):
 		# TODO: Callback for /traffic_waypoint message. Implement
-		self.stopline_wp_idx =  msg.data
-		rospy.logwarn("stopline id: {}".format(self.stopline_wp_idx))
-
+		if self.stopline_wp_idx != msg.data:
+			rospy.logwarn("stopline id change: {} to {}".format(self.stopline_wp_idx, msg.data))
+			self.stopline_wp_idx =  msg.data
 
 
 	def obstacle_cb(self, msg):
