@@ -2,25 +2,25 @@ from styx_msgs.msg import TrafficLight
 import tensorflow as tf
 import cv2
 import numpy as np
+import os
 
 class TLClassifier(object):
     def __init__(self):
-        self.threshold = 0.51
+        self.min_prob = 0.6
         self.use_simulator = True
+        cwd = os.path.dirname(os.path.realpath(__file__))
 
         # Load frozen inference graph
         if self.use_simulator:
-            trained_model_path = 'light_classification/ssd_simulator/frozen_inference_graph_sim.pb'
+            trained_model_path = cwd + '/frozen_inference_graph_sim.pb'
         else:
-            trained_model_path = 'light_classification/ssd_real/frozen_inference_graph_real.pb'
+            trained_model_path = cwd + '/frozen_inference_graph_real.pb'
+        with tf.gfile.GFile(trained_model_path, 'rb') as fid:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(fid.read())
         self.ssd_graph = tf.Graph()
         with self.ssd_graph.as_default():
-            graph_def = tf.GraphDef()
-            with tf.gfile.GFile(trained_model_path, 'rb') as fid:
-                serialized_graph = fid.read()
-                graph_def.ParseFromString(serialized_graph)
-                tf.import_graph_def(graph_def, name='')
-
+            tf.import_graph_def(graph_def, name='')
             # Load Graph and extract relevant tensors reflecting interesting inputs and outputs
             self.image_tensor = self.ssd_graph.get_tensor_by_name('image_tensor:0')
             self.boxes_det = self.ssd_graph.get_tensor_by_name('detection_boxes:0')
@@ -42,7 +42,7 @@ class TLClassifier(object):
 
         """
         # TODO implement light color prediction
-        with self.graph.as_default():
+        with self.ssd_graph.as_default():
             image_expanded = np.expand_dims(np.asarray(image, dtype=np.uint8), 0)
             # Start detection
             (boxes_sess, scores_sess, classes_sess, num_detections_sess) = self.current_session.run(
@@ -53,7 +53,7 @@ class TLClassifier(object):
         scores_pp = np.squeeze(scores_sess)
         classes_pp = np.squeeze(classes_sess).astype(np.int32)
 
-        if scores_pp[0] > self.threshold:
+        if scores_pp[0] > self.min_prob:
             if 1 == classes_pp[0]:
                 print('Green light')
                 return TrafficLight.GREEN
