@@ -11,7 +11,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
-from scipy.spatial import distance, KDTree
+from scipy.spatial import KDTree
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -21,6 +21,7 @@ class TLDetector(object):
         self.store_img = False
         self.pose = None
         self.waypoints = None
+        self.waypoints_2d = None
         self.camera_image = None
         self.lights = []
 
@@ -60,6 +61,10 @@ class TLDetector(object):
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+        if not self.waypoints_2d:
+            self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] 
+                                 for waypoint in waypoints.waypoints]
+            self.waypoint_tree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -105,17 +110,19 @@ class TLDetector(object):
 
         """
         # TODO implement
-        min_dist = float("inf")
-        closest_wp_idx = -1
-        position = (pos_x, pos_y)
-        if self.waypoints is not None:
-            for i, wp in enumerate(self.waypoints.waypoints):
-                wp_position = (wp.pose.pose.position.x, wp.pose.pose.position.y)
-                dist = distance.euclidean(wp_position, position)
-                if dist < min_dist:
-                    closest_wp_idx = i
-                    min_dist = dist
-        return closest_wp_idx
+        closest_idx = self.waypoint_tree.query([pos_x, pos_y], 1)[1]
+        return closest_idx
+#         min_dist = float("inf")
+#         closest_wp_idx = -1
+#         position = (pos_x, pos_y)
+#         if self.waypoints is not None:
+#             for i, wp in enumerate(self.waypoints.waypoints):
+#                 wp_position = (wp.pose.pose.position.x, wp.pose.pose.position.y)
+#                 dist = distance.euclidean(wp_position, position)
+#                 if dist < min_dist:
+#                     closest_wp_idx = i
+#                     min_dist = dist
+#         return closest_wp_idx
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -161,12 +168,12 @@ class TLDetector(object):
             idx_car_wp = self.get_closest_waypoint(self.pose.pose.position.x, self.pose.pose.position.y)
 
             # TODO find the closest visible traffic light (if one exists)
-            min_dist = float("inf")
+            min_dist = len(self.waypoints.waypoints)
             for i, current_light in enumerate(self.lights):
                 # Get index of stop line waypoint
                 line = stop_line_positions[i]
                 idx_line_wp = self.get_closest_waypoint(line[0], line[1])
-                dist = idx_car_wp - idx_line_wp
+                dist =  idx_line_wp - idx_car_wp
                 if (dist < min_dist) and (dist >= 0):
                     min_dist = dist
                     light = current_light
@@ -175,7 +182,7 @@ class TLDetector(object):
         if light:
             state = self.get_light_state(light)
             return light_wp, state
-        self.waypoints = None
+        #self.waypoints = None
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
