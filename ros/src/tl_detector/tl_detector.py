@@ -22,8 +22,14 @@ class TLDetector(object):
         self.pose = None
         self.waypoints = None
         self.waypoints_2d = None
+        self.waypoint_tree = None
         self.camera_image = None
         self.lights = []
+        
+        self.state = TrafficLight.UNKNOWN
+        self.last_state = TrafficLight.UNKNOWN
+        self.last_wp = -1
+        self.state_count = 0
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -40,17 +46,18 @@ class TLDetector(object):
 
         config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
-
+        self.is_site = self.config["is_site"]
+        
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
+        self.light_classifier = TLClassifier(self.is_site)
         self.listener = tf.TransformListener()
 
-        self.state = TrafficLight.UNKNOWN
-        self.last_state = TrafficLight.UNKNOWN
-        self.last_wp = -1
-        self.state_count = 0
+#         self.state = TrafficLight.UNKNOWN
+#         self.last_state = TrafficLight.UNKNOWN
+#         self.last_wp = -1
+#         self.state_count = 0
 
         self.img_counter = 0
 
@@ -146,9 +153,14 @@ class TLDetector(object):
             filename = basic_name + str(self.img_counter) + fileformat
             cv2.imwrite(filename, cv_image)
             self.img_counter += 1
-
+            
         #Get classification
-        return self.light_classifier.get_classification(cv_image)
+        light_state = self.light_classifier.get_classification(cv_image)
+        if light_state == TrafficLight.YELLOW:
+            light_state = TrafficLight.RED
+        return light_state
+        #Get classification
+        #return self.light_classifier.get_classification(cv_image)
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
@@ -182,7 +194,7 @@ class TLDetector(object):
         if light:
             state = self.get_light_state(light)
             return light_wp, state
-        #self.waypoints = None
+        #self.waypoints_2d = None
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':

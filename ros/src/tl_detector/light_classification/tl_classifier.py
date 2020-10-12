@@ -5,9 +5,9 @@ import numpy as np
 import os
 
 class TLClassifier(object):
-    def __init__(self):
-        self.min_prob = 0.6
-        self.use_simulator = True
+    def __init__(self, is_site):
+        self.min_prob = 0.2
+        self.use_simulator = (not is_site)
         cwd = os.path.dirname(os.path.realpath(__file__))
 
         # Load frozen inference graph
@@ -32,6 +32,7 @@ class TLClassifier(object):
         self.current_session = tf.Session(graph=self.ssd_graph)
 
     def get_classification(self, image):
+        #print("working")
         """Determines the color of the traffic light in the image
 
         Args:
@@ -62,7 +63,8 @@ class TLClassifier(object):
                 return TrafficLight.RED
             elif 3 == classes_pp[0]:
                 print('Yellow light')
-                return TrafficLight.YELLOW
+                return TrafficLight.YELLO
+            print("unknown")
         return TrafficLight.UNKNOWN
 
     def get_classification_cv(self, image):
